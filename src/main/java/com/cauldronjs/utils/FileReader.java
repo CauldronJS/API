@@ -1,4 +1,4 @@
-package me.conji.cauldron.utils;
+package com.cauldronjs.utils;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -17,8 +17,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
 
-import me.conji.cauldron.CauldronAPI;
-import me.conji.cauldron.Isolate;
+import com.cauldronjs.CauldronAPI;
+import com.cauldronjs.Isolate;
 
 public class FileReader {
   public static File getFile(CauldronAPI cauldron, String location) {

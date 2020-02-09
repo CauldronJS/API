@@ -1,15 +1,16 @@
-package me.conji.cauldron.utils;
+package com.cauldronjs.utils;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.*;
 
-import me.conji.cauldron.CauldronAPI;
-import me.conji.cauldron.Isolate;
+import com.cauldronjs.CauldronAPI;
+import com.cauldronjs.Isolate;
 
 public class PathHelpers {
   private static CauldronAPI cauldron() {
@@ -65,5 +66,16 @@ public class PathHelpers {
   public static BufferedReader readEmbedded(String name) {
     InputStream is = cauldron().getResource(name);
     return new BufferedReader(new InputStreamReader(is));
+  }
+
+  public static void tryInitializeCwd(CauldronAPI cauldron) throws IOException {
+    File cwd = cauldron.cwd();
+    if (!cwd.exists()) {
+      cwd.mkdirs();
+      Path dir = cwd.toPath();
+      dir.resolve("src").toFile().mkdir();
+      Files.copy(cauldron.getResource("package.json"), dir.resolve("package.json"));
+      Files.copy(cauldron.getResource("src/index.js"), dir.resolve("src/index.js"));
+    }
   }
 }

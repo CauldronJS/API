@@ -1,4 +1,4 @@
-package me.conji.cauldron;
+package com.cauldronjs;
 
 public class TargetDescriptor {
   private String platform;

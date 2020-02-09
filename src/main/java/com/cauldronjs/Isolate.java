@@ -1,8 +1,11 @@
-package me.conji.cauldron;
+package com.cauldronjs;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.concurrent.SynchronousQueue;
+import java.util.logging.Level;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
@@ -10,10 +13,10 @@ import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 
 import de.mxro.process.Spawn;
-import me.conji.cauldron.exceptions.JsException;
-import me.conji.cauldron.utils.Console;
-import me.conji.cauldron.utils.FileReader;
-import me.conji.cauldron.utils.PathHelpers;
+import com.cauldronjs.exceptions.JsException;
+import com.cauldronjs.utils.Console;
+import com.cauldronjs.utils.FileReader;
+import com.cauldronjs.utils.PathHelpers;
 
 public class Isolate {
   private static final String CAULDRON_SYMBOL = "$$cauldron$$";
@@ -167,6 +170,8 @@ public class Isolate {
       Console.error(ex);
       return null;
     } catch (Exception ex) {
+      cauldron.log(Level.INFO, ex.toString());
+      cauldron.log(Level.INFO, Arrays.toString(ex.getStackTrace()));
       throw new JsException(ex);
     }
   }

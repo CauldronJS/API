@@ -1,9 +1,9 @@
-package me.conji.cauldron.utils;
+package com.cauldronjs.utils;
 
 import java.util.logging.Level;
 
-import me.conji.cauldron.CauldronAPI;
-import me.conji.cauldron.Isolate;
+import com.cauldronjs.CauldronAPI;
+import com.cauldronjs.Isolate;
 
 public class Console {
   private static CauldronAPI cauldron() {

@@ -1,8 +1,8 @@
-package me.conji.cauldron.exceptions;
+package com.cauldronjs.exceptions;
 
 import java.util.stream.Stream;
 
-import me.conji.cauldron.Isolate;
+import com.cauldronjs.Isolate;
 
 public class JsException extends Exception {
   /**

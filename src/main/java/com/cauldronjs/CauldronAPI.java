@@ -1,4 +1,4 @@
-package me.conji.cauldron;
+package com.cauldronjs;
 
 import java.io.File;
 import java.io.InputStream;
