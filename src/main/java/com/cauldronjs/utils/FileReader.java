@@ -9,30 +9,34 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
 
 import com.cauldronjs.CauldronAPI;
-import com.cauldronjs.Isolate;
+
+import org.graalvm.polyglot.HostAccess.Export;
 
 public class FileReader {
-  public static File getFile(CauldronAPI cauldron, String location) {
-    String localizedName = Paths.get(cauldron.cwd().getPath(), location).toString();
+  private CauldronAPI cauldron;
+
+  public FileReader(CauldronAPI cauldron) {
+    this.cauldron = cauldron;
+  }
+
+  @Export
+  public File getFile(String location) {
+    String localizedName = Paths.get(cauldron.getMainIsolate().cwd().getPath(), location).toString();
     File localFile = new File(localizedName);
     return localFile;
   }
 
-  public static String read(CauldronAPI cauldron, String location) throws FileNotFoundException, IOException {
+  @Export
+  public String read(String location) throws FileNotFoundException, IOException {
     // first read from the disk "lib" dir, then read from resources
     // if neither exist, read from disk
     // god I hate all these variables and I'm THIS close to making a helper file for
     // this shit
-    String localizedName = Paths.get(cauldron.cwd().getPath(), location).toString();
+    String localizedName = Paths.get(cauldron.getMainIsolate().cwd().getPath(), location).toString();
     BufferedReader reader = null;
     File localFile = new File(localizedName);
     if (localFile.exists()) {
@@ -58,8 +62,9 @@ public class FileReader {
     return result;
   }
 
-  public static void write(CauldronAPI cauldron, String location, String content, int position, String encoding) {
-    File localizedFile = Paths.get(cauldron.cwd().getPath(), location).toFile();
+  @Export
+  public void write(String location, String content, int position, String encoding) {
+    File localizedFile = Paths.get(cauldron.getMainIsolate().cwd().getPath(), location).toFile();
     try {
       localizedFile.createNewFile();
       BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(localizedFile)));

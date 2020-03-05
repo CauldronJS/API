@@ -15,11 +15,11 @@ public interface CauldronAPI {
 
   public boolean isDebugging();
 
-  public File cwd();
-
   public int scheduleRepeatingTask(Runnable runnable, int interval, int timeout);
 
   public int scheduleTask(Runnable runnable, int timeout);
 
   public boolean cancelTask(int id);
+
+  public File getDefaultCwd();
 }

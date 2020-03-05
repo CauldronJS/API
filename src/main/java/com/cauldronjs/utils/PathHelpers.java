@@ -13,8 +13,8 @@ import com.cauldronjs.CauldronAPI;
 import com.cauldronjs.Isolate;
 
 public class PathHelpers {
-  private static CauldronAPI cauldron() {
-    return Isolate.activeIsolate().cauldron();
+  private static Isolate isolate() {
+    return Isolate.activeIsolate();
   }
 
   public static String join(String path1, String... paths) {
@@ -34,7 +34,7 @@ public class PathHelpers {
   }
 
   public static Path resolveLocalPath(String path1, String... paths) {
-    return Paths.get(cauldron().cwd().toPath().resolve(path1).toString(), paths);
+    return Paths.get(isolate().cwd().toPath().resolve(path1).toString(), paths);
   }
 
   public static File resolveLocalFile(String path1, String... paths) {
@@ -42,7 +42,7 @@ public class PathHelpers {
   }
 
   public static File resolveLocalFile(File file, String... paths) {
-    return Paths.get(cauldron().cwd().toPath().resolve(file.getPath()).toString(), paths).toFile();
+    return Paths.get(isolate().cwd().toPath().resolve(file.getPath()).toString(), paths).toFile();
   }
 
   public static boolean existsLocal(String path1, String... paths) {
@@ -54,7 +54,7 @@ public class PathHelpers {
   }
 
   public static boolean existsEmbedded(String path1, String... paths) {
-    return cauldron().getResource(join(path1, paths)) != null;
+    return isolate().cauldron().getResource(join(path1, paths)) != null;
   }
 
   public static BufferedReader readLocal(String path, String... paths) throws FileNotFoundException {
@@ -64,12 +64,12 @@ public class PathHelpers {
   }
 
   public static BufferedReader readEmbedded(String name) {
-    InputStream is = cauldron().getResource(name);
+    InputStream is = isolate().cauldron().getResource(name);
     return new BufferedReader(new InputStreamReader(is));
   }
 
   public static void tryInitializeCwd(CauldronAPI cauldron) throws IOException {
-    File cwd = cauldron.cwd();
+    File cwd = cauldron.getMainIsolate().cwd();
     if (!cwd.exists()) {
       cwd.mkdirs();
       Path dir = cwd.toPath();

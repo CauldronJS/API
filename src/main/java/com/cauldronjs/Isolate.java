@@ -1,9 +1,9 @@
 package com.cauldronjs;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.SynchronousQueue;
 import java.util.logging.Level;
 
@@ -20,7 +20,6 @@ import com.cauldronjs.utils.PathHelpers;
 
 public class Isolate {
   private static final String CAULDRON_SYMBOL = "$$cauldron$$";
-  private static final String ISOLATE_SYMBOL = CAULDRON_SYMBOL + ".isolate";
 
   private static final String ENGINE_ENTRY = "lib/internal/bootstrap/loader.js";
 
@@ -32,11 +31,13 @@ public class Isolate {
 
   private CauldronAPI cauldron;
   private Context context;
+  private FileReader fileReader;
   private boolean initialized = false;
 
   private boolean isEngaged = false;
   private SynchronousQueue<Value> asyncQueue = new SynchronousQueue<>(true);
   private int asyncProcessId;
+  private String cwd;
 
   /**
    * Represents an instance of the VM that runs scripts. Objects located in one
@@ -46,8 +47,10 @@ public class Isolate {
    */
   public Isolate(CauldronAPI cauldron) {
     this.cauldron = cauldron;
-    this.context = Context.newBuilder("js").option("js.ecmascript-version", "10").allowAllAccess(true)
-        .allowHostAccess(HostAccess.ALL).allowHostClassLoading(true).allowHostClassLookup(s -> true).build();
+    this.context = this.buildContext();
+    this.fileReader = new FileReader(cauldron);
+    this.cwd = Optional.ofNullable(System.getenv("CAULDRON_CWD"))
+        .orElse(this.cauldron.getDefaultCwd().getAbsolutePath());
   }
 
   private Runnable getAsyncRunnable() {
@@ -62,7 +65,8 @@ public class Isolate {
             Value nextInQueue = isolate.asyncQueue.take();
             nextInQueue.executeVoid();
           } catch (InterruptedException ex) {
-            Console.debug("Failed to finish async queue due to interruption. Details below:", ex);
+            Console.debug(Isolate.this.cauldron, "Failed to finish async queue due to interruption. Details below:",
+                ex);
             break;
           }
         }
@@ -70,11 +74,18 @@ public class Isolate {
     };
   }
 
+  private Context buildContext() {
+    return Context.newBuilder("js").option("js.ecmascript-version", "10").allowAllAccess(true)
+        .allowHostAccess(HostAccess.ALL).allowHostClassLoading(true).allowHostClassLookup(s -> true).build();
+  }
+
   private void createBindings() {
     // polyfill globalThis if the current version doesn't have it
     this.put("globalThis", this.context.getPolyglotBindings());
     this.put("process", false);
     this.put(CAULDRON_SYMBOL, this.cauldron);
+
+    this.bind("FileReader", this.fileReader);
   }
 
   private boolean activate() {
@@ -82,21 +93,21 @@ public class Isolate {
     if (!this.initialized) {
       this.createBindings();
       try {
-        this.runScript(FileReader.read(this.cauldron, ENGINE_ENTRY), ENGINE_ENTRY);
+        this.runScript(this.fileReader.read(ENGINE_ENTRY), ENGINE_ENTRY);
         this.initialized = true;
       } catch (FileNotFoundException ex) {
-        Console.error("Failed to find Cauldron entry point", ex);
+        Console.error(this.cauldron, "Failed to find Cauldron entry point", ex);
         return false;
       } catch (IOException ex) {
-        Console.error("An error occured while reading entry point", ex);
+        Console.error(this.cauldron, "An error occured while reading entry point", ex);
         return false;
       } catch (JsException ex) {
-        Console.error("An error occured while reading entry point", ex, ex.getStackTrace());
+        Console.error(this.cauldron, "An error occured while reading entry point", ex, ex.getStackTrace());
       }
     }
     activeIsolate = this;
     // refresh the registered isolate
-    this.put(ISOLATE_SYMBOL, this);
+    this.put("isolate", this);
     this.asyncProcessId = this.cauldron.scheduleRepeatingTask(this.getAsyncRunnable(),
         this.asyncQueue.isEmpty() ? POLLING_TIME_EMPTY : POLLING_TIME, POLLING_DURATION);
     return true;
@@ -162,27 +173,30 @@ public class Isolate {
   public Value runScript(String script, String location) throws JsException {
     this.isEngaged = true;
     try {
-      Source source = Source.newBuilder("js", script, location).mimeType("application/javascript").build();
+      Source source = Source.newBuilder("js", script, location).build();
       this.isEngaged = false;
       return this.context.eval(source);
     } catch (IOException ex) {
       this.isEngaged = false;
-      Console.error(ex);
+      Console.error(this.cauldron, "IO exception during eval: " + ex.toString());
       return null;
     } catch (Exception ex) {
-      cauldron.log(Level.INFO, ex.toString());
-      cauldron.log(Level.INFO, Arrays.toString(ex.getStackTrace()));
-      throw new JsException(ex);
+      Console.error(this.cauldron, "Generic exception during eval: " + ex.toString());
+      throw new JsException(this.cauldron, ex);
     }
   }
 
   public Value runScript(String location) throws FileNotFoundException, IOException, JsException {
-    String content = FileReader.read(this.cauldron, location);
+    String content = this.fileReader.read(location);
     return this.runScript(content, location);
   }
 
-  public void put(String identifier, Object object) {
+  private void put(String identifier, Object object) {
     this.context.getPolyglotBindings().putMember(identifier, object);
+  }
+
+  public void bind(String identifier, Object object) {
+    this.context.getPolyglotBindings().putMember(CAULDRON_SYMBOL + '.' + identifier, object);
   }
 
   public void queueFn(Value fn) {
@@ -202,5 +216,9 @@ public class Isolate {
    */
   public Context getContext() {
     return this.context;
+  }
+
+  public File cwd() {
+    return new File(this.cwd);
   }
 }
