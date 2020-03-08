@@ -13,63 +13,65 @@ import com.cauldronjs.CauldronAPI;
 import com.cauldronjs.Isolate;
 
 public class PathHelpers {
-  private static Isolate isolate() {
-    return Isolate.activeIsolate();
+  private Isolate isolate;
+
+  public PathHelpers(Isolate isolate) {
+    this.isolate = isolate;
   }
 
-  public static String join(String path1, String... paths) {
+  public String join(String path1, String... paths) {
     return Paths.get(path1, paths).toString();
   }
 
-  public static boolean exists(String path1, String... paths) {
+  public boolean exists(String path1, String... paths) {
     return Files.exists(Paths.get(path1, paths));
   }
 
-  public static boolean exists(File file, String... paths) {
+  public boolean exists(File file, String... paths) {
     return exists(file.getAbsolutePath(), paths);
   }
 
-  public static boolean exists(Path path, String... paths) {
+  public boolean exists(Path path, String... paths) {
     return exists(path.toFile(), paths);
   }
 
-  public static Path resolveLocalPath(String path1, String... paths) {
-    return Paths.get(isolate().cwd().toPath().resolve(path1).toString(), paths);
+  public Path resolveLocalPath(String path1, String... paths) {
+    return Paths.get(isolate.cwd().toPath().resolve(path1).toString(), paths);
   }
 
-  public static File resolveLocalFile(String path1, String... paths) {
+  public File resolveLocalFile(String path1, String... paths) {
     return resolveLocalPath(path1, paths).toFile();
   }
 
-  public static File resolveLocalFile(File file, String... paths) {
-    return Paths.get(isolate().cwd().toPath().resolve(file.getPath()).toString(), paths).toFile();
+  public File resolveLocalFile(File file, String... paths) {
+    return Paths.get(isolate.cwd().toPath().resolve(file.getPath()).toString(), paths).toFile();
   }
 
-  public static boolean existsLocal(String path1, String... paths) {
+  public boolean existsLocal(String path1, String... paths) {
     return resolveLocalFile(path1, paths).exists();
   }
 
-  public static boolean existsLocal(File file, String... paths) {
+  public boolean existsLocal(File file, String... paths) {
     return resolveLocalFile(file, paths).exists();
   }
 
-  public static boolean existsEmbedded(String path1, String... paths) {
-    return isolate().cauldron().getResource(join(path1, paths)) != null;
+  public boolean existsEmbedded(String path1, String... paths) {
+    return this.isolate.cauldron().getResource(join(path1, paths)) != null;
   }
 
-  public static BufferedReader readLocal(String path, String... paths) throws FileNotFoundException {
+  public BufferedReader readLocal(String path, String... paths) throws FileNotFoundException {
     File localFile = resolveLocalFile(path, paths);
     FileInputStream fis = new FileInputStream(localFile);
     return new BufferedReader(new InputStreamReader(fis));
   }
 
-  public static BufferedReader readEmbedded(String name) {
-    InputStream is = isolate().cauldron().getResource(name);
+  public BufferedReader readEmbedded(String name) {
+    InputStream is = this.isolate.cauldron().getResource(name);
     return new BufferedReader(new InputStreamReader(is));
   }
 
-  public static void tryInitializeCwd(CauldronAPI cauldron) throws IOException {
-    File cwd = cauldron.getMainIsolate().cwd();
+  public void tryInitializeCwd(CauldronAPI cauldron) throws IOException {
+    File cwd = isolate.cwd();
     if (!cwd.exists()) {
       cwd.mkdirs();
       Path dir = cwd.toPath();
