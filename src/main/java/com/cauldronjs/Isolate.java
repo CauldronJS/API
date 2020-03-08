@@ -4,18 +4,16 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SynchronousQueue;
-import java.util.logging.Level;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.proxy.ProxyExecutable;
 
 import de.mxro.process.Spawn;
 
+import com.cauldronjs.core.AsyncFactory;
 import com.cauldronjs.exceptions.JsException;
 import com.cauldronjs.utils.Console;
 import com.cauldronjs.utils.FileReader;
@@ -36,6 +34,7 @@ public class Isolate {
   private Context context;
   private FileReader fileReader;
   private PathHelpers pathHelpers;
+  private AsyncFactory asyncFactory;
   private boolean initialized = false;
 
   private boolean isEngaged = false;
@@ -54,6 +53,7 @@ public class Isolate {
     this.context = this.buildContext();
     this.fileReader = new FileReader(cauldron);
     this.pathHelpers = new PathHelpers(this);
+    this.asyncFactory = new AsyncFactory(this);
     this.cwd = Optional.ofNullable(System.getenv("CAULDRON_CWD"))
         .orElse(this.cauldron.getDefaultCwd().getAbsolutePath());
   }
@@ -211,46 +211,16 @@ public class Isolate {
   }
 
   /**
-   * Creates a promise that executes asynchronously, returning a Thenable
-   * 
-   * @param promiseArgsFn
-   * @return
-   */
-  public Value generateAsyncPromise(Value promiseBody) {
-    // a JS function decorated with 'async' doesn't mean it'll run async. It just
-    // means
-    // that we can use the 'await' operator in it. Graal will allow us to use
-    // 'await'
-    // on a Thenable, so this function's job is to run the Promise's body async
-
-    Value promise = this.context.getBindings("js").getMember("Promise");
-    if (!promiseBody.canExecute()) {
-      return promise.invokeMember("resolve", promiseBody);
-    } else {
-      return promise.newInstance((ProxyExecutable) args -> {
-        Value resolve = args[0];
-        Value reject = args[1];
-        this.cauldron.scheduleTask(() -> {
-          try {
-            Value result = promiseBody.execute();
-            resolve.execute(result);
-          } catch (Exception ex) {
-            reject.execute(ex);
-          }
-        }, 0);
-
-        return null;
-      });
-    }
-  }
-
-  /**
    * Gets the context of this isolate
    * 
    * @return
    */
   public Context getContext() {
     return this.context;
+  }
+
+  public AsyncFactory getAsyncFactory() {
+    return this.asyncFactory;
   }
 
   public File cwd() {
