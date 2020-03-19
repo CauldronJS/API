@@ -32,14 +32,14 @@
     <dependency>
       <groupId>org.graalvm.truffle</groupId>
       <artifactId>truffle-api</artifactId>
-      <version>19.3.1</version>
+      <version>20.0.0</version>
       <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>org.graalvm.sdk</groupId>
       <artifactId>graal-sdk</artifactId>
-      <version>19.3.1</version>
+      <version>20.0.0</version>
       <scope>provided</scope>
     </dependency>
 

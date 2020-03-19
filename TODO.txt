@@ -1,0 +1,11 @@
+# TODO
+
+- investigate running the main context from a separate thread to reduce timings
+- allow for JS bootstrapping to occur independently of running 'package.main'
+- create the process object in Java for config/option passing into the Isolate instance
+- investigate if multiple threads can access Bukkit data at once
+- investigate binding of custom classes with static properties into the context
+
+References:
+- https://github.com/graalvm/graaljs/blob/master/graal-js/src/com.oracle.truffle.js.test.threading/src/com/oracle/truffle/js/test/threading/ConcurrentAccess.java
+- https://github.com/graalvm/graaljs/blob/master/graal-js/src/com.oracle.truffle.js.test.threading/src/com/oracle/truffle/js/test/threading/SharedJavaObjects.java

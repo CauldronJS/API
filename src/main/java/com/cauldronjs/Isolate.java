@@ -3,30 +3,36 @@ package com.cauldronjs;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.SynchronousQueue;
+import java.util.logging.Level;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.management.ExecutionListener;
 
 import de.mxro.process.Spawn;
 
 import com.cauldronjs.core.AsyncFactory;
+import com.cauldronjs.core.JsRunnable;
+import com.cauldronjs.core.net.NetServer;
 import com.cauldronjs.exceptions.JsException;
 import com.cauldronjs.utils.Console;
 import com.cauldronjs.utils.FileReader;
 import com.cauldronjs.utils.PathHelpers;
+import com.oracle.truffle.api.frame.FrameSlot;
+import com.oracle.truffle.api.frame.FrameSlotKind;
+import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.instrumentation.EventContext;
+import com.oracle.truffle.api.instrumentation.ExecutionEventListener;
 
 public class Isolate {
   private static final String CAULDRON_SYMBOL = "$$cauldron$$";
 
   private static final String ENGINE_ENTRY = "lib/internal/bootstrap/loader.js";
-
-  private static final int POLLING_TIME = 2;
-  private static final int POLLING_TIME_EMPTY = 10;
-  private static final int POLLING_DURATION = 5;
 
   private static Isolate activeIsolate;
 
@@ -36,11 +42,9 @@ public class Isolate {
   private PathHelpers pathHelpers;
   private AsyncFactory asyncFactory;
   private boolean initialized = false;
-
-  private boolean isEngaged = false;
-  private SynchronousQueue<Value> asyncQueue = new SynchronousQueue<>(true);
-  private int asyncProcessId;
   private String cwd;
+
+  private ArrayList<Value> onCloseHandlers;
 
   /**
    * Represents an instance of the VM that runs scripts. Objects located in one
@@ -56,31 +60,16 @@ public class Isolate {
     this.asyncFactory = new AsyncFactory(this);
     this.cwd = Optional.ofNullable(System.getenv("CAULDRON_CWD"))
         .orElse(this.cauldron.getDefaultCwd().getAbsolutePath());
+    this.onCloseHandlers = new ArrayList<>();
   }
 
-  private Runnable getAsyncRunnable() {
-    return new Runnable() {
-
-      @Override
-      public void run() {
-        int processed = 0;
-        Isolate isolate = Isolate.activeIsolate;
-        while ((processed++) < 10 && !isolate.asyncQueue.isEmpty() && isolate.isEngaged) {
-          try {
-            Value nextInQueue = isolate.asyncQueue.take();
-            nextInQueue.executeVoid();
-          } catch (InterruptedException ex) {
-            Console.debug(Isolate.this.cauldron, "Failed to finish async queue due to interruption. Details below:",
-                ex);
-            break;
-          }
-        }
-      }
-    };
+  private Thread createContextThread() {
+    Thread thread = new Thread(null, null, "CauldronThread");
+    return thread;
   }
 
   private Context buildContext() {
-    return Context.newBuilder("js").option("js.ecmascript-version", "10").allowAllAccess(true)
+    return Context.newBuilder("js").option("js.ecmascript-version", "11").allowAllAccess(true)
         .allowHostAccess(HostAccess.ALL).allowHostClassLoading(true).allowHostClassLookup(s -> true).build();
   }
 
@@ -92,6 +81,10 @@ public class Isolate {
 
     this.bind("FileReader", this.fileReader);
     this.bind("PathHelpers", this.pathHelpers);
+
+    // bind Cauldron classes/modules
+    this.bind("NetServer", new NetServer(this));
+    this.bind("Runnable", new JsRunnable());
   }
 
   private boolean activate() throws IOException {
@@ -115,13 +108,10 @@ public class Isolate {
     activeIsolate = this;
     // refresh the registered isolate
     this.put("isolate", this);
-    this.asyncProcessId = this.cauldron.scheduleRepeatingTask(this.getAsyncRunnable(),
-        this.asyncQueue.isEmpty() ? POLLING_TIME_EMPTY : POLLING_TIME, POLLING_DURATION);
     return true;
   }
 
   private void pause() {
-    this.cauldron.cancelTask(this.asyncProcessId);
     try {
       this.context.leave();
     } catch (Exception ex) {
@@ -146,10 +136,21 @@ public class Isolate {
   public void dispose() {
     this.pause();
     try {
+      this.onCloseHandlers.forEach((value) -> {
+        if (value.canExecute()) {
+          value.execute();
+        }
+      });
       this.context.close(true);
     } catch (Exception ex) {
       // ignore
     }
+  }
+
+  public void runEntry() {
+    assert this.initialized;
+    assert this.context.getBindings("js").hasMember("NativeModule");
+    this.context.getBindings("js").getMember("NativeModule").invokeMember("$$bootstrap");
   }
 
   /**
@@ -178,13 +179,10 @@ public class Isolate {
    * @return
    */
   public Value runScript(String script, String location) throws JsException {
-    this.isEngaged = true;
     try {
       Source source = Source.newBuilder("js", script, location).build();
-      this.isEngaged = false;
       return this.context.eval(source);
     } catch (IOException ex) {
-      this.isEngaged = false;
       Console.error(this.cauldron, "IO exception during eval: " + ex.toString());
       return null;
     } catch (Exception ex) {
@@ -198,6 +196,14 @@ public class Isolate {
     return this.runScript(content, location);
   }
 
+  public Value eval(String content) throws JsException {
+    try {
+      return this.context.eval("js", content);
+    } catch (Exception ex) {
+      throw new JsException(this.cauldron, ex);
+    }
+  }
+
   private void put(String identifier, Object object) {
     this.context.getPolyglotBindings().putMember(identifier, object);
   }
@@ -208,6 +214,10 @@ public class Isolate {
 
   public String spawn(String command, String folder) {
     return Spawn.sh(this.pathHelpers.resolveLocalFile(folder), command);
+  }
+
+  public void onClose(Value handler) {
+    this.onCloseHandlers.add(handler);
   }
 
   /**
