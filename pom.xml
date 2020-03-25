@@ -6,7 +6,7 @@
 
   <groupId>com.cauldronjs</groupId>
   <artifactId>CauldronAPI</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 
   <name>CauldronAPI</name>
   <url>https://cauldronjs.com</url>
@@ -43,11 +43,11 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpasyncclient -->
     <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpasyncclient</artifactId>
-      <version>4.1.4</version>
+      <groupId>org.graalvm.js</groupId>
+      <artifactId>js</artifactId>
+      <version>20.0.0</version>
+      <scope>provided</scope>
     </dependency>
 
   </dependencies>
@@ -112,8 +112,8 @@
           <!-- Relocate shaded libraries that might cause class conflicts with other plugins -->
           <relocations>
             <relocation>
-              <pattern>main.java.de.mxro.process</pattern>
-              <shadedPattern>com.cauldronjs.libs.main.java.de.mxro.process</shadedPattern>
+              <pattern>de.mxro.process</pattern>
+              <shadedPattern>com.cauldronjs.libs.de.mxro.process</shadedPattern>
             </relocation>
           </relocations>
 

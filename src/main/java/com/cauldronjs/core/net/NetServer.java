@@ -1,62 +1,77 @@
 package com.cauldronjs.core.net;
 
-import org.apache.http.impl.nio.bootstrap.HttpServer;
-import org.apache.http.impl.nio.bootstrap.ServerBootstrap;
-
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.logging.Level;
 
 import com.cauldronjs.CauldronAPI;
 import com.cauldronjs.Isolate;
+import com.cauldronjs.api.BoundType;
 import com.cauldronjs.api.Thenable;
 import com.cauldronjs.exceptions.JsException;
 
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.HostAccess.Export;
 
 public class NetServer {
-  private static Isolate isolate;
-  private HttpServer server;
-  private Value listenHandler;
+  private ServerSocket serverSocket;
+  private Isolate isolate;
 
   public NetServer(Isolate isolate) {
-    super();
-    if (NetServer.isolate == null) {
-      NetServer.isolate = isolate;
-    }
+    this.isolate = isolate;
   }
 
-  public NetServer(int port, int backlog, String addr) {
-    this.server = ServerBootstrap.bootstrap().setListenerPort(port).setServerInfo("CauldronJS/1.1")
-        .registerHandler("*", new NetServerHandler(this)).create();
+  protected NetServer(int port, int backlog, String address) throws IOException {
+    this.serverSocket = new ServerSocket(port, backlog, InetAddress.getByName(address));
+
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
-        NetServer.this.server.shutdown(5, TimeUnit.SECONDS);
+        try {
+          NetServer.this.serverSocket.close();
+        } catch (IOException ex) {
+          System.err.println("Failed to shutdown server: " + ex.getMessage());
+        }
       }
     });
   }
 
-  public void listen() throws IOException {
-    this.server.start();
+  public void setSoTimeout(int ms) throws SocketException {
+    this.serverSocket.setSoTimeout(ms);
+  }
+
+  public void accept(Value callback) {
+    try {
+      Socket socket = this.serverSocket.accept();
+      callback.execute(null, socket);
+    } catch (SocketTimeoutException ex) {
+      // ignore
+    } catch (IOException ex) {
+      callback.execute(ex, null);
+    }
+  }
+
+  public void listen() {
+
   }
 
   public void close() throws IOException {
-    this.server.shutdown(5, TimeUnit.SECONDS);
+    this.serverSocket.close();
   }
 
-  public HttpServer getServer() {
-    return this.server;
+  public ServerSocket getServer() {
+    return this.serverSocket;
   }
 
-  public void setListenHandler(Value handler) {
-    this.listenHandler = handler;
-  }
-
-  public Value getListenHandler() {
-    return this.listenHandler;
-  }
-
-  public NetServer createServer(int port, int backlog, String addr) {
-    return new NetServer(port, backlog, addr);
+  @Export
+  public static NetServer createServer(int port, int backlog, String address) throws IOException {
+    return new NetServer(port, backlog, address);
   }
 }

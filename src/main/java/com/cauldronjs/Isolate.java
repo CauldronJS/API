@@ -4,43 +4,45 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
+
+import javax.script.Compilable;
+import javax.script.CompiledScript;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
-import org.graalvm.polyglot.management.ExecutionListener;
 
 import de.mxro.process.Spawn;
 
 import com.cauldronjs.core.AsyncFactory;
 import com.cauldronjs.core.JsRunnable;
+import com.cauldronjs.core.NativeProcess;
 import com.cauldronjs.core.net.NetServer;
 import com.cauldronjs.exceptions.JsException;
 import com.cauldronjs.utils.Console;
 import com.cauldronjs.utils.FileReader;
 import com.cauldronjs.utils.PathHelpers;
-import com.oracle.truffle.api.frame.FrameSlot;
-import com.oracle.truffle.api.frame.FrameSlotKind;
-import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.instrumentation.EventContext;
-import com.oracle.truffle.api.instrumentation.ExecutionEventListener;
+import com.oracle.truffle.regex.nashorn.regexp.joni.exception.SyntaxException;
 
 public class Isolate {
+
   private static final String CAULDRON_SYMBOL = "$$cauldron$$";
 
   private static final String ENGINE_ENTRY = "lib/internal/bootstrap/loader.js";
 
   private static Isolate activeIsolate;
 
-  private CauldronAPI cauldron;
-  private Context context;
-  private FileReader fileReader;
-  private PathHelpers pathHelpers;
-  private AsyncFactory asyncFactory;
+  private final CauldronAPI cauldron;
+  private final Context context;
+  private final ScriptEngine validationEngine;
+  private final FileReader fileReader;
+  private final PathHelpers pathHelpers;
+  private final AsyncFactory asyncFactory;
   private boolean initialized = false;
   private String cwd;
 
@@ -55,7 +57,8 @@ public class Isolate {
   public Isolate(CauldronAPI cauldron) {
     this.cauldron = cauldron;
     this.context = this.buildContext();
-    this.fileReader = new FileReader(cauldron);
+    this.validationEngine = new ScriptEngineManager().getEngineByName("graal-js");
+    this.fileReader = new FileReader(this);
     this.pathHelpers = new PathHelpers(this);
     this.asyncFactory = new AsyncFactory(this);
     this.cwd = Optional.ofNullable(System.getenv("CAULDRON_CWD"))
@@ -63,14 +66,13 @@ public class Isolate {
     this.onCloseHandlers = new ArrayList<>();
   }
 
-  private Thread createContextThread() {
-    Thread thread = new Thread(null, null, "CauldronThread");
-    return thread;
-  }
-
   private Context buildContext() {
-    return Context.newBuilder("js").option("js.ecmascript-version", "11").allowAllAccess(true)
+    ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
+    Thread.currentThread().setContextClassLoader(CauldronAPI.class.getClassLoader());
+    Context context = Context.newBuilder("js").option("js.ecmascript-version", "11").allowAllAccess(true)
         .allowHostAccess(HostAccess.ALL).allowHostClassLoading(true).allowHostClassLookup(s -> true).build();
+    Thread.currentThread().setContextClassLoader(mainClassLoader);
+    return context;
   }
 
   private void createBindings() {
@@ -85,6 +87,7 @@ public class Isolate {
     // bind Cauldron classes/modules
     this.bind("NetServer", new NetServer(this));
     this.bind("Runnable", new JsRunnable());
+    this.bind("NativeProcess", NativeProcess.build(this));
   }
 
   private boolean activate() throws IOException {
@@ -202,6 +205,11 @@ public class Isolate {
     } catch (Exception ex) {
       throw new JsException(this.cauldron, ex);
     }
+  }
+
+  public boolean validate(String content) throws ScriptException {
+    CompiledScript result = ((Compilable) this.validationEngine).compile(content);
+    return !result.equals(null);
   }
 
   private void put(String identifier, Object object) {

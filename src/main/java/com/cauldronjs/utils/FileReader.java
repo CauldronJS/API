@@ -13,14 +13,17 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 
 import com.cauldronjs.CauldronAPI;
+import com.cauldronjs.Isolate;
+import com.cauldronjs.api.BoundType;
 
 import org.graalvm.polyglot.HostAccess.Export;
 
-public class FileReader {
+public class FileReader extends BoundType<FileReader> {
   private CauldronAPI cauldron;
 
-  public FileReader(CauldronAPI cauldron) {
-    this.cauldron = cauldron;
+  public FileReader(Isolate isolate) {
+    super(isolate);
+    this.cauldron = isolate.cauldron();
   }
 
   @Export

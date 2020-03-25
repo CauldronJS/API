@@ -11,11 +11,13 @@ import java.nio.file.*;
 
 import com.cauldronjs.CauldronAPI;
 import com.cauldronjs.Isolate;
+import com.cauldronjs.api.BoundType;
 
-public class PathHelpers {
+public class PathHelpers extends BoundType<PathHelpers> {
   private Isolate isolate;
 
   public PathHelpers(Isolate isolate) {
+    super(isolate);
     this.isolate = isolate;
   }
 
