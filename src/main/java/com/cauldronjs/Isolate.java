@@ -17,8 +17,10 @@ import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 
+import de.mxro.process.ProcessListener;
 import de.mxro.process.Spawn;
 
+import com.cauldronjs.api.Thenable;
 import com.cauldronjs.core.AsyncFactory;
 import com.cauldronjs.core.JsRunnable;
 import com.cauldronjs.core.NativeProcess;
@@ -27,7 +29,6 @@ import com.cauldronjs.exceptions.JsException;
 import com.cauldronjs.utils.Console;
 import com.cauldronjs.utils.FileReader;
 import com.cauldronjs.utils.PathHelpers;
-import com.oracle.truffle.regex.nashorn.regexp.joni.exception.SyntaxException;
 
 public class Isolate {
 
@@ -46,7 +47,7 @@ public class Isolate {
   private boolean initialized = false;
   private String cwd;
 
-  private ArrayList<Value> onCloseHandlers;
+  private ArrayList<Value> shutdownHandlers;
 
   /**
    * Represents an instance of the VM that runs scripts. Objects located in one
@@ -63,7 +64,7 @@ public class Isolate {
     this.asyncFactory = new AsyncFactory(this);
     this.cwd = Optional.ofNullable(System.getenv("CAULDRON_CWD"))
         .orElse(this.cauldron.getDefaultCwd().getAbsolutePath());
-    this.onCloseHandlers = new ArrayList<>();
+    this.shutdownHandlers = new ArrayList<>();
   }
 
   private Context buildContext() {
@@ -139,12 +140,12 @@ public class Isolate {
   public void dispose() {
     this.pause();
     try {
-      this.onCloseHandlers.forEach((value) -> {
+      this.shutdownHandlers.forEach((value) -> {
         if (value.canExecute()) {
           value.execute();
         }
       });
-      this.context.close(true);
+      this.context.close();
     } catch (Exception ex) {
       // ignore
     }
@@ -224,8 +225,40 @@ public class Isolate {
     return Spawn.sh(this.pathHelpers.resolveLocalFile(folder), command);
   }
 
-  public void onClose(Value handler) {
-    this.onCloseHandlers.add(handler);
+  public Thenable spawnAsync(String command, String folder) {
+    ThreadLocal<Object> result = new ThreadLocal<>();
+    return (resolve, reject) -> {
+      Spawn.startProcess(command, this.pathHelpers.resolveLocalFile(folder), new ProcessListener() {
+
+        @Override
+        public void onProcessQuit(int returnValue) {
+          result.set(returnValue);
+          resolve.execute(result.get());
+        }
+
+        @Override
+        public void onOutputLine(String line) {
+          result.set(line);
+          resolve.execute(result.get());
+        }
+
+        @Override
+        public void onErrorLine(String line) {
+          result.set(line);
+          reject.execute(result.get());
+        }
+
+        @Override
+        public void onError(Throwable t) {
+          result.set(t);
+          reject.execute(result.get());
+        }
+      });
+    };
+  }
+
+  public void addShutdownHook(Value handler) {
+    this.shutdownHandlers.add(handler);
   }
 
   /**
