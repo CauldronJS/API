@@ -1,8 +1,8 @@
-package com.cauldronjs.api;
+package com.cauldronjs.async;
 
 import org.graalvm.polyglot.Value;
 
 @FunctionalInterface
 public interface Thenable {
-  public void then(Value onResolve, Value onReject);
+  void then(Value onResolve, Value onReject);
 }

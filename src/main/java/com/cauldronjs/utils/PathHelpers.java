@@ -10,14 +10,12 @@ import java.io.InputStreamReader;
 import java.nio.file.*;
 
 import com.cauldronjs.CauldronAPI;
-import com.cauldronjs.Isolate;
-import com.cauldronjs.api.BoundType;
+import com.cauldronjs.isolate.Isolate;
 
-public class PathHelpers extends BoundType<PathHelpers> {
+public class PathHelpers {
   private Isolate isolate;
 
   public PathHelpers(Isolate isolate) {
-    super(isolate);
     this.isolate = isolate;
   }
 

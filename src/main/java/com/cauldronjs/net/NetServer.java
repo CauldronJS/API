@@ -1,22 +1,12 @@
-package com.cauldronjs.core.net;
+package com.cauldronjs.net;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-
-import com.cauldronjs.CauldronAPI;
-import com.cauldronjs.Isolate;
-import com.cauldronjs.api.BoundType;
-import com.cauldronjs.api.Thenable;
-import com.cauldronjs.exceptions.JsException;
-
+import com.cauldronjs.isolate.Isolate;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.HostAccess.Export;
 

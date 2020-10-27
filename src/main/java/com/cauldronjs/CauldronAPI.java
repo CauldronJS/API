@@ -4,22 +4,34 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.logging.Level;
 
+import com.cauldronjs.isolate.Isolate;
+import com.cauldronjs.isolate.IsolateManager;
+import org.graalvm.polyglot.Value;
+
 public interface CauldronAPI {
-  public Isolate getMainIsolate();
+  IsolateManager getIsolateManager();
 
-  public TargetDescriptor getTarget();
+  Isolate getMainIsolate();
 
-  public InputStream getResource(String name);
+  TargetDescriptor getTarget();
 
-  public void log(Level level, String content);
+  InputStream getResource(String name);
 
-  public boolean isDebugging();
+  void log(Level level, String content);
 
-  public int scheduleRepeatingTask(Runnable runnable, int interval, int timeout);
+  boolean isDebugging();
 
-  public int scheduleTask(Runnable runnable, int timeout);
+  boolean isRunning();
 
-  public boolean cancelTask(int id);
+  int scheduleRepeatingTask(Value fn, int interval, int timeout);
+
+  int scheduleTask(Value fn, int timeout);
+
+  int scheduleRepeatingTask(Runnable runnable, int interval, int timeout);
+
+  int scheduleTask(Runnable runnable, int timeout);
+
+  boolean cancelTask(int id);
 
   public File getDefaultCwd();
 }

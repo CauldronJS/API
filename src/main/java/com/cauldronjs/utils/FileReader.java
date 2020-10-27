@@ -13,16 +13,14 @@ import java.nio.file.Paths;
 import java.util.logging.Level;
 
 import com.cauldronjs.CauldronAPI;
-import com.cauldronjs.Isolate;
-import com.cauldronjs.api.BoundType;
+import com.cauldronjs.isolate.Isolate;
 
 import org.graalvm.polyglot.HostAccess.Export;
 
-public class FileReader extends BoundType<FileReader> {
+public class FileReader {
   private CauldronAPI cauldron;
 
   public FileReader(Isolate isolate) {
-    super(isolate);
     this.cauldron = isolate.cauldron();
   }
 
@@ -34,7 +32,7 @@ public class FileReader extends BoundType<FileReader> {
   }
 
   @Export
-  public String read(String location) throws FileNotFoundException, IOException {
+  public String read(String location) throws IOException {
     // first read from the disk "lib" dir, then read from resources
     // if neither exist, read from disk
     // god I hate all these variables and I'm THIS close to making a helper file for
